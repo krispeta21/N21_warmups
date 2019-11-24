@@ -14,6 +14,71 @@
 -- correct format (year and month)?
 
 
+WITH month_sales AS (
+    SELECT
+    od.product_id,
+    od.order_id,
+    SUM(od.quantity) as units,
+    SUM(od.unit_price*od.quantity*(1-od.discount)) as total,
+    o.order_date,
+    DATE_PART('year', o.order_date) as year,
+    DATE_PART('month',o.order_date) as month
+FROM order_details as od
+JOIN
+orders as o
+ON 
+od.order_id = o.order_id
+GROUP BY
+od.order_id,
+od.product_id,
+o.order_date, 
+month
+ORDER BY
+od.product_id, 
+o.order_date),
+previous AS (
+SELECT
+    ms.product_id,
+    SUM(ms.units) as unit,
+    ms.year,
+    ms.month,
+    LAG(SUM(ms.units),1) OVER(PARTITION BY ms.product_id ORDER BY ms.year, ms.month) as previous
+FROM month_sales as ms
+GROUP BY
+ms.product_id, ms.year, ms.month
+ORDER BY
+ms.product_id,
+ms.year,
+ms.month)
+SELECT *,
+COALESCE(unit-previous,0) AS difference 
+FROM
+previous;
+
+ product_id | unit | year | month | previous | difference 
+------------+------+------+-------+----------+------------
+          1 |   63 | 1996 |     8 |          |           
+          1 |   20 | 1996 |     9 |       63 |        -43
+          1 |   27 | 1996 |    11 |       20 |          7
+          1 |   15 | 1996 |    12 |       27 |        -12
+          1 |   34 | 1997 |     1 |       15 |         19
+          1 |   15 | 1997 |     3 |       34 |        -19
+          1 |   40 | 1997 |     4 |       15 |         25
+          1 |    8 | 1997 |     5 |       40 |        -32
+          1 |   10 | 1997 |     6 |        8 |          2
+
+
+
+
+
+
+
+
+
+
+
+
+Background work
 
 *Almost there, need to complete the window functions portion to get the lag
 
